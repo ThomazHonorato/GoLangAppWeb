@@ -15,7 +15,7 @@ type Produto struct {
 
 func BuscaTodosOsProdutos() []Produto {
 	dbCon := db.ConectaComBancoDeDados()
-	selectDeTodosOsProdutos, err := dbCon.Query("select * from produtos")
+	selectDeTodosOsProdutos, err := dbCon.Query("select * from produtos order by id asc")
 	if err != nil {
 		panic(err.Error())
 	}
@@ -77,6 +77,55 @@ func DeletaProduto(id string) {
 		panic(err.Error())
 	}
 	deletarProduto.Exec(id)
+
+	err = dbCon.Close()
+	if err != nil {
+		return
+	}
+}
+
+func EditaProduto(id string) Produto {
+	dbCon := db.ConectaComBancoDeDados()
+	produtoDoBanco, err := dbCon.Query("select * from produtos where id=$1", id)
+	if err != nil {
+		panic(err.Error())
+	}
+	produtoParaAtualizar := Produto{}
+
+	for produtoDoBanco.Next() {
+		var id, quantidade int
+		var nome, descricao string
+		var preco float64
+
+		err = produtoDoBanco.Scan(&id, &nome, &descricao, &preco, &quantidade)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		produtoParaAtualizar.Id = id
+		produtoParaAtualizar.Nome = nome
+		produtoParaAtualizar.Descricao = descricao
+		produtoParaAtualizar.Preco = preco
+		produtoParaAtualizar.Quantidade = quantidade
+	}
+	defer func(dbCon *sql.DB) {
+		err := dbCon.Close()
+		if err != nil {
+			panic(err.Error())
+		}
+	}(dbCon)
+	return produtoParaAtualizar
+}
+
+func AtualizaProduto(id int, nome, descricao string, preco float64, quantidade int) {
+	dbCon := db.ConectaComBancoDeDados()
+
+	AtualizaProduto, err := dbCon.Prepare("update produtos set nome=$1, descricao=$2, preco=$3, quantidade=$4 where id=$5")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	AtualizaProduto.Exec(nome, descricao, preco, quantidade, id)
 
 	err = dbCon.Close()
 	if err != nil {
